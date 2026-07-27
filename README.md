@@ -1,25 +1,25 @@
 # CGM Dietary Study: AUS vs MED vs LC
 
 R analysis code for a short-term crossover study comparing the acute glycaemic
-effects of three isocaloric diets — Australian (AUS), Mediterranean (MED), and
-low-carbohydrate (LC) — in adults at elevated risk of type 2 diabetes, using
+effects of three isocaloric diets ( Australian (AUS), Mediterranean (MED), and
+low-carbohydrate (LC)) in adults at elevated risk of type 2 diabetes, using
 continuous glucose monitoring (CGM).
 
 ## Scripts
 
 Run in order:
 
-1. **`01_data_setup.R`** — reads the raw CGM and meal data, calculates the
+1. **`01_data_setup.R`** : reads the raw CGM and meal data, calculates the
    glycaemic metrics (mean glucose, CV%, MAGE, time-in-range measures), and
    builds two analysis datasets (`full_data`, `daily_data`). Saves
    `CGM_Study.RData` and `CGM_Descriptives.xlsx`.
-2. **`02_statistical_analysis.R`** — linear mixed-effects models for the diet
+2. **`02_statistical_analysis.R`** : linear mixed-effects models for the diet
    comparisons, non-parametric tests for the bounded outcomes, random-slope
    models for inter-individual variability, and exploratory moderation. Saves
    `CGM_Results.xlsx`.
-3. **`03_visualisations.R`** — the four figures reported in the thesis
+3. **`03_visualisations.R`** : the four figures reported in the thesis
    (compliance, CGM outcomes panel, ambulatory glucose profile, age vs TIR).
-4. **`04_individual_response.R`** — per-participant responder classification and
+4. **`04_individual_response.R`** : per-participant responder classification and
    the composite best-diet ranking, with confirmatory tests. Saves
    `CGM_Individual_Response.xlsx`.
 
