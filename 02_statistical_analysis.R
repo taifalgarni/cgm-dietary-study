@@ -1,13 +1,11 @@
-# ============================================================
+
 # Script 2 - Statistical analysis
 # CGM dietary study: AUS vs MED vs LC
-#
 # Aim 1: feasibility / adherence
 # Aim 2: acute glycaemic response and variability (diet vs diet)
 # Aim 3: is the diet effect personal, and does it track biometrics
-#
 # Produces CGM_Results.xlsx (used for Table 2 and Appendix B).
-# ============================================================
+
 
 library(tidyverse)
 library(lme4)
@@ -29,7 +27,7 @@ np_outcomes  <- c("TIR", "TITR", "TAR", "TBR")
 val <- function(x) if (is.null(x) || length(x) == 0) NA_real_ else x
 
 
-# 1. Aim 1 - adherence ---------------------------------------
+# 1. Aim 1 - adherence 
 
 adh_wide <- full_data %>%
   select(participant, diet, mean_pct_consumed) %>%
@@ -39,16 +37,15 @@ adh_wide <- full_data %>%
 adherence_friedman <- friedman.test(as.matrix(adh_wide[, -1]))
 
 
-# 2. Aim 2 - descriptive table -------------------------------
+# 2. Aim 2 - descriptive table 
 
 desc_tbl <- full_data %>%
   group_by(diet) %>%
   summarise(across(all_of(c(lmm_outcomes, np_outcomes)),
-                   ~ sprintf("%.2f ± %.2f", mean(.x, na.rm = TRUE), sd(.x, na.rm = TRUE))),
-            .groups = "drop")
+                   ~ sprintf("%.2f ± %.2f", mean(.x, na.rm = TRUE), sd(.x, na.rm = TRUE))),.groups = "drop")
 
 
-# 3. Aim 2 - linear mixed models (continuous outcomes) -------
+# 3. Aim 2 - linear mixed models (continuous outcomes) 
 # outcome ~ diet + period + (1 | participant)
 
 lmm_summary <- data.frame()
@@ -66,16 +63,14 @@ for (out in lmm_outcomes) {
     p_period = round(a["period", "Pr(>F)"], 4),
     R2_marg  = round(val(perf$R2_marginal), 3),
     R2_cond  = round(val(perf$R2_conditional), 3),
-    ICC      = round(val(perf$ICC), 3)
-  ))
+    ICC      = round(val(perf$ICC), 3)))
 
   pw <- as.data.frame(emmeans(m, pairwise ~ diet, adjust = "bonferroni")$contrasts)
   pw$outcome <- out
-  pairwise <- rbind(pairwise, pw[, c("outcome", "contrast", "estimate", "SE", "t.ratio", "p.value")])
-}
+  pairwise <- rbind(pairwise, pw[, c("outcome", "contrast", "estimate", "SE", "t.ratio", "p.value")])}
 
 
-# 4. Aim 2 - bounded % outcomes (TIR/TITR/TAR/TBR) -----------
+# 4. Aim 2 - bounded % outcomes (TIR/TITR/TAR/TBR) 
 # Friedman across the three diets, then paired Wilcoxon per pair (Bonferroni x3)
 
 diet_pairs <- list(c("AUS", "MED"), c("AUS", "LC"), c("MED", "LC"))
@@ -92,9 +87,7 @@ for (out in np_outcomes) {
       outcome = out, N = nrow(w),
       chisq = round(as.numeric(ft$statistic), 3),
       df    = as.numeric(ft$parameter),
-      p     = round(ft$p.value, 4)))
-  }
-}
+      p     = round(ft$p.value, 4)))}}
 
 np_pairwise <- data.frame()
 for (out in np_outcomes) {
@@ -110,12 +103,10 @@ for (out in np_outcomes) {
       outcome = out, comparison = paste(pr[1], "vs", pr[2]), N = nrow(d),
       median_diff = round(median(d[[pr[1]]] - d[[pr[2]]]), 3),
       p = round(wt$p.value, 4),
-      p_bonf = round(min(wt$p.value * 3, 1), 4)))
-  }
-}
+      p_bonf = round(min(wt$p.value * 3, 1), 4))) }}
 
 
-# 5. Aim 3 - is the diet effect personal? (random slopes) ----
+# 5. Aim 3 - is the diet effect personal? (random slopes) 
 # random-slope vs random-intercept model, compared by LRT.
 # Singular fits are kept and reported (they are themselves informative).
 
@@ -143,11 +134,10 @@ for (out in c("mean_glucose", "cv_glucose")) {
     df           = lrt$Df[2],
     p_LRT        = round(lrt$`Pr(>Chisq)`[2], 4),
     slope_sd_MED = round(ifelse(length(sd_med) > 0, sd_med, NA), 3),
-    slope_sd_LC  = round(ifelse(length(sd_lc)  > 0, sd_lc,  NA), 3)))
-}
+    slope_sd_LC  = round(ifelse(length(sd_lc)  > 0, sd_lc,  NA), 3)))}
 
 
-# 6. Aim 3 - reliability of each person's best diet ----------
+# 6. Aim 3 - reliability of each person's best diet 
 # between-diet spread vs within-diet day-to-day SD.
 # ratio > 1 = the best diet is distinguishable from daily noise.
 
@@ -158,11 +148,10 @@ reliab <- daily_data %>%
   group_by(participant) %>%
   summarise(between_diet_range = max(diet_mean) - min(diet_mean),
             mean_day_sd        = mean(day_sd, na.rm = TRUE),
-            ratio              = between_diet_range / mean_day_sd,
-            .groups = "drop")
+            ratio              = between_diet_range / mean_day_sd,.groups = "drop")
 
 
-# 7. Aim 3 - diet x biometric interactions (exploratory) -----
+# 7. Aim 3 - diet x biometric interactions (exploratory) 
 
 mod_results <- data.frame()
 for (out in c("mean_glucose", "cv_glucose")) {
@@ -172,23 +161,19 @@ for (out in c("mean_glucose", "cv_glucose")) {
     a    <- anova(m)
     term <- grep(paste0("diet:", mod), rownames(a), value = TRUE)
     if (length(term))
-      mod_results <- rbind(mod_results, data.frame(
-        outcome = out, moderator = mod,
-        F = round(a[term, "F value"], 3), p = round(a[term, "Pr(>F)"], 4)))
-  }
-}
+      mod_results <- rbind(mod_results, data.frame(outcome = out, moderator = mod,
+        F = round(a[term, "F value"], 3), p = round(a[term, "Pr(>F)"], 4)))}}
 
 
-# 8. Model checks (continuous outcomes) ----------------------
+# 8. Model checks (continuous outcomes) 
 
 for (out in c("mean_glucose", "cv_glucose")) {
   m <- lmer(as.formula(paste(out, "~ diet + period + (1 | participant)")), data = full_data)
   print(check_normality(m))
-  print(check_heteroscedasticity(m))
-}
+  print(check_heteroscedasticity(m))}
 
 
-# 9. Export --------------------------------------------------
+# 9. Export 
 
 write_xlsx(list(Descriptives = as.data.frame(desc_tbl),
                 LMM          = lmm_summary,
