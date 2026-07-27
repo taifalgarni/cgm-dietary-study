@@ -1,16 +1,13 @@
-# ============================================================
+
 # Script 4 - Individual response analysis (Aim 3)
 # CGM dietary study: AUS vs MED vs LC
-#
 # 1. Classify each participant's response to each diet relative
 #    to their own three-diet mean (mean glucose, CV%, MAGE).
 # 2. Rank the diets within each participant into a composite
 #    score to find their best diet.
 # 3. Test whether the distribution of best diets exceeds chance.
-#
 # Produces the responder figures, the best-diet figure, and
 # CGM_Individual_Response.xlsx.
-# ============================================================
 
 library(tidyverse)
 library(writexl)
@@ -22,18 +19,16 @@ resp_cols <- c(
   "Mild Responder"   = "#4CE897",
   "Non-Responder"    = "#BDC3C7",
   "Mild Opposite"    = "#E88B4C",
-  "Strong Opposite"  = "#E63946"
-)
+  "Strong Opposite"  = "#E63946")
 
 # order participants P1..P23 (not alphabetical P1, P10, P11, ...)
 order_participants <- function(p) {
   p   <- as.character(p)
   num <- suppressWarnings(as.numeric(gsub("\\D", "", p)))
-  factor(p, levels = unique(p[order(num)]))
-}
+  factor(p, levels = unique(p[order(num)]))}
 
 
-# 1. Responder classification --------------------------------
+# 1. Responder classification 
 # Each value is compared to the participant's own three-diet mean.
 # Thresholds are study-defined (a priori), not published cut-offs:
 #   mean glucose : % change   (+/-5% mild, +/-10% strong)
@@ -48,9 +43,7 @@ classify_glucose <- function(pct) {
     pct > -5 & pct < 5  ~ "Non-Responder",
     pct >= 5 & pct < 10 ~ "Mild Opposite",
     pct >= 10           ~ "Strong Opposite",
-    TRUE                ~ "Non-Responder"
-  )
-}
+    TRUE                ~ "Non-Responder" )}
 classify_cv <- function(d) {
   case_when(
     d <= -3.5           ~ "Strong Responder",
@@ -58,9 +51,7 @@ classify_cv <- function(d) {
     d > -1.5 & d < 1.5  ~ "Non-Responder",
     d >= 1.5 & d < 3.5  ~ "Mild Opposite",
     d >= 3.5            ~ "Strong Opposite",
-    TRUE                ~ "Non-Responder"
-  )
-}
+    TRUE                ~ "Non-Responder")}
 classify_mage <- function(d) {
   case_when(
     d <= -0.5           ~ "Strong Responder",
@@ -68,9 +59,7 @@ classify_mage <- function(d) {
     d > -0.2 & d < 0.2  ~ "Non-Responder",
     d >= 0.2 & d < 0.5  ~ "Mild Opposite",
     d >= 0.5            ~ "Strong Opposite",
-    TRUE                ~ "Non-Responder"
-  )
-}
+    TRUE                ~ "Non-Responder")}
 
 response_data <- full_data %>%
   select(participant, diet, mean_glucose, cv_glucose, MAGE) %>%
@@ -88,11 +77,10 @@ response_data <- full_data %>%
     mage_category    = factor(classify_mage(diff_mage_mmol),        levels = names(resp_cols)),
     lab_glucose = paste0(round(pct_change_glucose, 1), "%"),
     lab_cv      = paste0(round(diff_cv_pts, 1), " pts"),
-    lab_mage    = paste0(round(diff_mage_mmol, 3), " mmol/L")
-  )
+    lab_mage    = paste0(round(diff_mage_mmol, 3), " mmol/L"))
 
 
-# 2. Responder heatmaps (one per metric) ---------------------
+# 2. Responder heatmaps (one per metric) 
 
 make_heatmap <- function(df, fill_col, label_col, title) {
   df$participant <- order_participants(df$participant)
@@ -109,8 +97,7 @@ make_heatmap <- function(df, fill_col, label_col, title) {
     theme(plot.title      = element_text(face = "bold", hjust = 0.5, size = 13),
           axis.text.x     = element_text(face = "bold", size = 13),
           legend.position = "bottom",
-          panel.grid      = element_blank())
-}
+          panel.grid      = element_blank())}
 
 ggsave("figure_5a_heatmap_glucose.png",
        make_heatmap(response_data, "glucose_category", "lab_glucose",
@@ -126,7 +113,7 @@ ggsave("figure_5c_heatmap_mage.png",
        width = 9, height = 11, dpi = 300, bg = "white")
 
 
-# 3. Responder summary bar (all three metrics) ---------------
+# 3. Responder summary bar (all three metrics) 
 
 bar_data <- bind_rows(
   response_data %>% group_by(diet) %>% count(glucose_category) %>%
@@ -137,8 +124,7 @@ bar_data <- bind_rows(
     rename(category = cv_category) %>% ungroup(),
   response_data %>% group_by(diet) %>% count(mage_category) %>%
     mutate(pct = round(n / sum(n) * 100, 1), metric = "MAGE") %>%
-    rename(category = mage_category) %>% ungroup()
-) %>%
+    rename(category = mage_category) %>% ungroup()) %>%
   mutate(metric   = factor(metric, levels = c("Mean Glucose", "CV%", "MAGE")),
          category = factor(category, levels = names(resp_cols)))
 
@@ -160,7 +146,7 @@ p_bar_resp <- ggplot(bar_data, aes(x = diet, y = pct, fill = category)) +
 ggsave("figure_6_responder_summary.png", p_bar_resp, width = 16, height = 8, dpi = 300, bg = "white")
 
 
-# 4. Composite ranking - best diet per participant -----------
+# 4. Composite ranking : best diet per participant 
 # Rank the diets within each participant on each metric
 # (1 = best = lowest), average the ranks, lowest = winner.
 
@@ -175,9 +161,7 @@ composite <- response_data %>%
     score     = (r_glucose + r_cv + r_mage) / 3,
     win_glucose = diet[which.min(mean_glucose)],
     win_cv      = diet[which.min(cv_glucose)],
-    win_mage    = diet[which.min(MAGE)]
-  ) %>%
-  ungroup()
+    win_mage    = diet[which.min(MAGE)]) %>% ungroup()
 
 margins <- composite %>%
   group_by(participant) %>%
@@ -188,8 +172,7 @@ margins <- composite %>%
     win_glucose = first(win_glucose),
     win_cv      = first(win_cv),
     win_mage    = first(win_mage),
-    .groups = "drop"
-  ) %>%
+    .groups = "drop") %>%
   mutate(
     win_margin = as.numeric(s2 - s1),
     agreement  = case_when(
@@ -197,19 +180,17 @@ margins <- composite %>%
       (win_glucose == winner & win_cv == winner) |
         (win_glucose == winner & win_mage == winner) |
         (win_cv == winner & win_mage == winner)                     ~ "2 of 3 agree",
-      TRUE                                                          ~ "Composite only"
-    ),
+      TRUE                                                          ~ "Composite only"),
     confidence = recode(agreement,
                         "All 3 agree" = "High", "2 of 3 agree" = "Moderate",
-                        "Composite only" = "Low")
-  )
+                        "Composite only" = "Low"))
 
 win_counts <- margins %>%
   count(winner) %>%
   mutate(pct = round(n / sum(n) * 100, 1))
 
 
-# 5. Statistical confirmation --------------------------------
+# 5. Statistical confirmation 
 
 # paired Wilcoxon on composite scores (Bonferroni x3, effect size r = Z/sqrt(N))
 pairs_list <- list(c("AUS", "MED"), c("AUS", "LC"), c("MED", "LC"))
@@ -233,8 +214,7 @@ for (pr in pairs_list) {
     p_value     = round(w$p.value, 4),
     p_adjusted  = round(p_adj, 4),
     effect_r    = r,
-    Significant = ifelse(p_adj < 0.05, "Yes", "No")))
-}
+    Significant = ifelse(p_adj < 0.05, "Yes", "No")))}
 
 # chi-square: is each diet equally likely to be best?
 observed   <- table(margins$winner)
@@ -246,11 +226,10 @@ for (d in c("LC", "AUS", "MED")) {
   n_wins <- sum(margins$winner == d)
   b <- binom.test(n_wins, nrow(margins), p = 1/3, alternative = "greater")
   binom_results <- rbind(binom_results, data.frame(
-    diet = d, wins = n_wins, total = nrow(margins), p = round(b$p.value, 4)))
-}
+    diet = d, wins = n_wins, total = nrow(margins), p = round(b$p.value, 4)))}
 
 
-# 6. Export --------------------------------------------------
+# 6. Export 
 
 write_xlsx(
   list(
@@ -268,7 +247,5 @@ write_xlsx(
     Wilcoxon_Composite = as.data.frame(wilcox_composite),
     ChiSquare_BestDiet = data.frame(
       Test = c("Chi-square", "Binomial LC", "Binomial AUS", "Binomial MED"),
-      p_value = c(round(chi_result$p.value, 4), binom_results$p))
-  ),
-  "CGM_Individual_Response.xlsx"
-)
+      p_value = c(round(chi_result$p.value, 4), binom_results$p))),
+  "CGM_Individual_Response.xlsx")
