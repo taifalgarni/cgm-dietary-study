@@ -1,12 +1,11 @@
-# ============================================================
-# Script 3 - Figures used in the thesis
+
+# Script 3 : Figures used in the thesis
 # CGM dietary study: AUS vs MED vs LC
-#
-# Figure 1 - Meal compliance
-# Figure 2 - CGM outcomes panel (mean glucose, CV%, MAGE, TIR, TITR, TBR)
-# Figure 3 - Ambulatory glucose profile (diurnal curves)
-# Figure 4 - Age vs Time in Range, by diet and sex
-# ============================================================
+# Figure 1 : Meal compliance
+# Figure 2 : CGM outcomes panel (mean glucose, CV%, MAGE, TIR, TITR, TBR)
+# Figure 3 : Ambulatory glucose profile (diurnal curves)
+# Figure 4 : Age vs Time in Range, by diet and sex
+
 
 library(tidyverse)
 library(patchwork)
@@ -20,11 +19,10 @@ theme_cgm <- theme_minimal(base_size = 13) +
     plot.title       = element_text(face = "bold", hjust = 0.5, size = 13),
     plot.subtitle    = element_text(hjust = 0.5, colour = "grey40", size = 10),
     legend.position  = "bottom",
-    panel.grid.minor = element_blank()
-  )
+    panel.grid.minor = element_blank())
 
 
-# Figure 1 - meal compliance ---------------------------------
+# Figure 1 : meal compliance 
 
 p_compliance <- ggplot(full_data,
                        aes(x = diet, y = mean_pct_consumed, fill = diet, colour = diet)) +
@@ -36,13 +34,12 @@ p_compliance <- ggplot(full_data,
   scale_y_continuous(limits = c(70, 105)) +
   labs(x = "Diet", y = "Mean % of Prescribed Meal Consumed",
        title = "Meal Compliance by Dietary Intervention") +
-  theme_cgm +
-  theme(legend.position = "none")
+  theme_cgm + theme(legend.position = "none")
 
 ggsave("figure_1_compliance.png", p_compliance, width = 8, height = 6, dpi = 300, bg = "white")
 
 
-# Figure 2 - CGM outcomes panel ------------------------------
+# Figure 2 : CGM outcomes panel 
 # Six reported outcomes. TAR is omitted (negligible on all diets,
 # reported in the table instead).
 
@@ -58,9 +55,7 @@ make_boxplot <- function(data, y_var, y_label, title, ref_line = NULL) {
     theme(legend.position = "none")
   if (!is.null(ref_line))
     p <- p + geom_hline(yintercept = ref_line, linetype = "dashed",
-                        colour = "grey40", linewidth = 0.8)
-  p
-}
+                        colour = "grey40", linewidth = 0.8) p}
 
 p_mean <- make_boxplot(full_data, "mean_glucose", "Mean Glucose (mmol/L)", "Mean Glucose")
 p_cv   <- make_boxplot(full_data, "cv_glucose", "CV (%)", "Glucose Variability (CV%)")
@@ -73,13 +68,12 @@ p_panel <- (p_mean | p_cv | p_mage) /
            (p_tir | p_titr | p_tbr) +
   plot_annotation(
     title = "CGM Outcomes by Dietary Intervention",
-    theme = theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 15))
-  )
+    theme = theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 15)))
 
 ggsave("figure_2_cgm_outcomes.png", p_panel, width = 15, height = 10, dpi = 300, bg = "white")
 
 
-# Figure 3 - ambulatory glucose profile (diurnal curves) -----
+# Figure 3 : ambulatory glucose profile (diurnal curves) 
 # Each participant's median glucose per 30-min slot, then
 # percentiles across participants per diet.
 
@@ -99,9 +93,7 @@ agp_daily <- individual_medians %>%
     p25    = quantile(glucose_median, 0.25, na.rm = TRUE),
     median = median(glucose_median,         na.rm = TRUE),
     p75    = quantile(glucose_median, 0.75, na.rm = TRUE),
-    p95    = quantile(glucose_median, 0.95, na.rm = TRUE),
-    .groups = "drop"
-  )
+    p95    = quantile(glucose_median, 0.95, na.rm = TRUE),.groups = "drop")
 
 p_agp <- ggplot(agp_daily, aes(x = time_30min, colour = diet, fill = diet)) +
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = 3.9, ymax = 10.0,
@@ -129,7 +121,7 @@ p_agp <- ggplot(agp_daily, aes(x = time_30min, colour = diet, fill = diet)) +
 ggsave("figure_3_agp.png", p_agp, width = 15, height = 6, dpi = 300, bg = "white")
 
 
-# Figure 4 - Age vs Time in Range, by diet and sex -----------
+# Figure 4 : Age vs Time in Range, by diet and sex 
 
 p_age_tir <- ggplot(full_data, aes(x = AgeGrp, y = TIR, colour = Sex, shape = Sex)) +
   geom_point(size = 3.5, alpha = 0.85) +
@@ -139,7 +131,6 @@ p_age_tir <- ggplot(full_data, aes(x = AgeGrp, y = TIR, colour = Sex, shape = Se
   facet_wrap(~ diet, ncol = 3) +
   labs(title = "Age vs Time in Range (TIR) by Diet",
        x = "Age (years)", y = "TIR (%)") +
-  theme_cgm +
-  theme(strip.text = element_text(face = "bold"))
+  theme_cgm + theme(strip.text = element_text(face = "bold"))
 
 ggsave("figure_4_age_vs_tir.png", p_age_tir, width = 13, height = 5, dpi = 300, bg = "white")
