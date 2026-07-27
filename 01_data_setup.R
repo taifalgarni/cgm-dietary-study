@@ -1,4 +1,4 @@
-# ============================================================
+
 # Script 1 - Data setup and CGM metrics
 # CGM dietary study: AUS vs MED vs LC
 #
@@ -6,20 +6,19 @@
 # metrics used in the study, and saves two analysis datasets:
 #   full_data  - one row per participant per diet
 #   daily_data - one row per participant per diet per day
-# ============================================================
+
 
 library(tidyverse)
 library(lubridate)
 library(readxl)
 library(writexl)
 
-# set this to the folder containing the data files
-setwd("path/to/your/folder")
+# Row data files 
 
 ppt_levels <- paste0("P", 1:23)
 
 
-# 1. CGM data ------------------------------------------------
+# 1. CGM data 
 
 cgm_raw <- read_csv("all_CGM_data.csv", show_col_types = FALSE)
 
@@ -34,12 +33,10 @@ cgm <- cgm_raw %>%
     datetime = parse_date_time(datetime,
                                orders = c("ymd HMS", "ymd HM", "dmy HMS", "dmy HM"),
                                tz = "UTC"),
-    day = as.integer(day)
-  ) %>%
-  filter(!is.na(glucose), !is.na(datetime))
+    day = as.integer(day)) %>% filter(!is.na(glucose), !is.na(datetime))
 
 
-# 2. Meal / compliance data ----------------------------------
+# 2. Meal / compliance data 
 
 meals_raw <- read_excel("Participants_compliance.xlsx", sheet = "Sheet1")
 
@@ -61,11 +58,10 @@ meals <- meals_raw %>%
     meal         = factor(meal, levels = c("Breakfast", "Lunch", "Dinner")),
     pct_consumed = as.numeric(pct_consumed),
     kcal_meal    = as.numeric(kcal_meal),
-    had_extra    = !is.na(extra) & str_trim(extra) != "NA"
-  )
+    had_extra    = !is.na(extra) & str_trim(extra) != "NA" )
 
 
-# 3. Biometrics (one row per participant) --------------------
+# 3. Biometrics (one row per participant) 
 
 biometrics <- cgm %>%
   select(participant, Sex, AgeGrp, Pre.weight, Height,
@@ -74,7 +70,7 @@ biometrics <- cgm %>%
   mutate(across(c(PreS.BMI, PostS.BMI, AgeGrp, Pre.weight, Height), as.numeric))
 
 
-# 4. Helper functions ----------------------------------------
+# 4. Helper functions 
 
 # Standard CGM metrics for a glucose vector.
 # Thresholds (mmol/L): TIR 3.9-10.0, TITR 3.9-7.8, TAR >10.0, TBR <3.9
@@ -86,9 +82,7 @@ cgm_summary <- function(g) {
     TIR  = mean(g >= 3.9 & g <= 10.0) * 100,
     TITR = mean(g >= 3.9 & g <= 7.8)  * 100,
     TAR  = mean(g > 10.0) * 100,
-    TBR  = mean(g < 3.9)  * 100
-  )
-}
+    TBR  = mean(g < 3.9)  * 100  )}
 
 # MAGE for one day's glucose vector (Service et al., 1970):
 # mean amplitude of excursions larger than 1 SD of that day.
@@ -111,11 +105,10 @@ mage_day <- function(g) {
   swings <- abs(diff(tp))
   big    <- swings[swings > thr]
   if (length(big) == 0) return(0)
-  mean(big)
-}
+  mean(big)}
 
 
-# 5. Per-diet metrics (one value per participant per diet) ---
+# 5. Per-diet metrics (one value per participant per diet) 
 
 metrics_overall <- cgm %>%
   group_by(participant, diet) %>%
@@ -133,7 +126,7 @@ cgm_metrics <- metrics_overall %>%
   left_join(mage_tbl, by = c("participant", "diet"))
 
 
-# 6. Per-day metrics (for the inter-individual models) -------
+# 6. Per-day metrics (for the inter-individual models) 
 
 daily_metrics <- cgm %>%
   group_by(participant, diet, day) %>%
@@ -141,7 +134,7 @@ daily_metrics <- cgm %>%
   ungroup()
 
 
-# 7. Adherence (Aim 1) ---------------------------------------
+# 7. Adherence (Aim 1) 
 
 compliance <- meals %>%
   group_by(participant, diet) %>%
@@ -152,11 +145,10 @@ compliance <- meals %>%
     n_partial         = sum(pct_consumed > 0 & pct_consumed < 100, na.rm = TRUE),
     pct_full          = sum(pct_consumed == 100, na.rm = TRUE) / n() * 100,
     n_extras          = sum(had_extra, na.rm = TRUE),
-    .groups = "drop"
-  )
+    .groups = "drop"  )
 
 
-# 8. Diet order / period from the randomisation code ---------
+# 8. Diet order / period from the randomisation code 
 # Diet.Routine e.g. "AML" = AUS first, MED second, LC third
 
 letter_to_diet <- c(A = "AUS", M = "MED", L = "LC")
@@ -171,15 +163,12 @@ for (i in 1:nrow(biometrics)) {
       participant = biometrics$participant[i],
       diet        = letter_to_diet[[letters_i[pos]]],
       period      = pos,
-      sequence    = seq_label
-    ))
-  }
-}
+      sequence    = seq_label )) }}
 diet_order$diet   <- factor(diet_order$diet, levels = c("AUS", "MED", "LC"))
 diet_order$period <- factor(diet_order$period)
 
 
-# 9. Assemble the two analysis datasets ----------------------
+# 9. Assemble the two analysis datasets 
 
 # AUS is set as the model reference (statistical only, not a control)
 full_data <- cgm_metrics %>%
@@ -195,7 +184,7 @@ daily_data <- daily_metrics %>%
   mutate(diet = relevel(factor(diet), ref = "AUS"))
 
 
-# 10. Distribution check (Shapiro-Wilk) ----------------------
+# 10. Distribution check (Shapiro-Wilk) 
 
 check_outcomes <- c("mean_glucose", "cv_glucose", "MAGE", "TIR", "TITR", "TAR", "TBR")
 
@@ -207,12 +196,10 @@ for (out in check_outcomes) {
     p <- shapiro.test(v)$p.value
     normality <- rbind(normality, data.frame(
       Outcome = out, Diet = d, N = length(v),
-      p = round(p, 4), normal = ifelse(p > .05, "yes", "no")))
-  }
-}
+      p = round(p, 4), normal = ifelse(p > .05, "yes", "no")))}}
 
 
-# 11. Save ---------------------------------------------------
+# 11. Save 
 
 demographics <- biometrics %>%
   summarise(N = n(),
