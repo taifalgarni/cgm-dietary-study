@@ -1,0 +1,18 @@
+# Data - never commit participant data
+*.csv
+*.xlsx
+*.RData
+*.rds
+ 
+# R session files
+.Rhistory
+.RData
+.Rproj.user/
+ 
+# Output figures 
+*.png
+ 
+# OS files
+.DS_Store
+Thumbs.db
+ 
