@@ -29,13 +29,6 @@ Run in order:
 - Packages: `tidyverse`, `lubridate`, `readxl`, `writexl`, `lme4`, `lmerTest`,
   `emmeans`, `performance`, `patchwork`
 
-Install with:
-
-```r
-install.packages(c("tidyverse", "lubridate", "readxl", "writexl",
-                   "lme4", "lmerTest", "emmeans", "performance", "patchwork"))
-```
-
 ## Data availability
 
 The raw participant data are **not** included in this repository. Because the
