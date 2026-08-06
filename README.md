@@ -18,7 +18,7 @@ Run in order:
    models for inter-individual variability, and exploratory moderation. Saves
    `CGM_Results.xlsx`.
 3. **`03_visualisations.R`** : the four figures reported in the thesis
-   (compliance, CGM outcomes panel, ambulatory glucose profile, age vs TIR).
+   (compliance, CGM outcomes panel, ambulatory glucose profile, age vs TITR).
 4. **`04_individual_response.R`** : per-participant responder classification and
    the composite best-diet ranking, with confirmatory tests. Saves
    `CGM_Individual_Response.xlsx`.
