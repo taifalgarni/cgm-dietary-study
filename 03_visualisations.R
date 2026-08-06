@@ -26,9 +26,7 @@ theme_cgm <- theme_minimal(base_size = 16) +
 
 
 # 3.1 boxplots - CGM outcomes 
-# one combined figure: mean glucose, CV%, MAGE, TITR. plain boxplot + jitter,
-# no violin. TIR/TAR/TBR are not plotted here - TITR is the reported
-# time-in-range metric for this thesis (see Data Preparation section).
+# one combined figure: mean glucose, CV%, MAGE, TITR. plain boxplot + jitter
 
 make_boxplot <- function(data, y_var, y_label) {
   ggplot(data, aes(x = diet, y = .data[[y_var]], fill = diet)) +
@@ -103,6 +101,7 @@ ggsave("plot_04_compliance.png", p_compliance, width = 8, height = 6, dpi = 300,
 
 # 3.4 ambulatory glucose profile (AGP) 
 # step 1: each participant's median glucose in each 30-min slot.
+
 individual_medians <- cgm %>%
   mutate(
     time_min   = as.numeric(format(datetime, "%H")) * 60 +
@@ -113,6 +112,7 @@ individual_medians <- cgm %>%
   summarise(glucose_median = median(glucose, na.rm = TRUE), .groups = "drop")
 
 # step 2: percentiles across participants, per diet per slot.
+
 agp_daily <- individual_medians %>%
   group_by(diet, time_30min) %>%
   summarise(
