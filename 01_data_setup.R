@@ -1,11 +1,4 @@
-
-# Script 1 - Data setup and CGM metrics
-# CGM dietary study: AUS vs MED vs LC
-#
-# Reads the raw CGM and meal data, calculates the glycaemic
-# metrics used in the study, and saves two analysis datasets:
-#   full_data  - one row per participant per diet
-#   daily_data - one row per participant per diet per day
+# Script 1 - data setup & CGM metrics
 
 
 library(tidyverse)
@@ -13,7 +6,7 @@ library(lubridate)
 library(readxl)
 library(writexl)
 
-# Row data files 
+setwd("~/Library/CloudStorage/OneDrive-ImperialCollegeLondon/Research Project/Scripts")  # <- your path
 
 ppt_levels <- paste0("P", 1:23)
 
@@ -33,122 +26,158 @@ cgm <- cgm_raw %>%
     datetime = parse_date_time(datetime,
                                orders = c("ymd HMS", "ymd HM", "dmy HMS", "dmy HM"),
                                tz = "UTC"),
-    day = as.integer(day)) %>% filter(!is.na(glucose), !is.na(datetime))
+    day = as.integer(day)
+  ) %>%
+  filter(!is.na(glucose), !is.na(datetime))
+
+# P2 lost CGM on LC, P11 lost CGM on MED (both still completed all three diets)
 
 
-# 2. Meal / compliance data 
+# 2. compliance / meal data 
 
-meals_raw <- read_excel("Participants_compliance.xlsx", sheet = "Sheet1")
+meals_raw <- read_excel("Participants complaince .xlsx", sheet = "Sheet1")
 
 meals <- meals_raw %>%
   rename(
-    participant  = `Participant ID`,
-    day          = Day,
-    sex          = Sex,
-    meal         = Meal,
-    diet         = Diet,
-    pct_consumed = `% consumed`,
-    extra        = Extra,
-    kcal_meal    = `Kcal/meal`
+    participant       = `Participant ID`,
+    day               = Day,
+    sex               = Sex,
+    meal              = Meal,
+    diet              = Diet,
+    recipe            = Recipe,
+    pct_consumed      = `% consumed`,
+    extra             = Extra,
+    physical_activity = `Physical activity`,
+    kcal_meal         = `Kcal/meal`
   ) %>%
   mutate(
     participant  = factor(str_trim(as.character(participant)), levels = ppt_levels),
     diet         = factor(diet, levels = c("AUS", "MED", "LC")),
-    meal         = str_replace(meal, "Breakfaast", "Breakfast"),
+    meal         = str_replace(meal, "Breakfaast", "Breakfast"),   # typo in the sheet
     meal         = factor(meal, levels = c("Breakfast", "Lunch", "Dinner")),
     pct_consumed = as.numeric(pct_consumed),
     kcal_meal    = as.numeric(kcal_meal),
-    had_extra    = !is.na(extra) & str_trim(extra) != "NA" )
+    had_extra    = !is.na(extra) & str_trim(extra) != "NA")
 
 
-# 3. Biometrics (one row per participant) 
+# 3. biometrics (one row per person) 
 
 biometrics <- cgm %>%
   select(participant, Sex, AgeGrp, Pre.weight, Height,
-         PreS.BMI, PostS.BMI, Diet.Routine) %>%
+         PreS.BMI, PostS.BMI, Visceral.Adiposity,
+         Lipids, IGT, Family, Smoking, Activity,
+         PCOS, Thyroid, Diet.Routine, Ethnicity) %>%
   distinct(participant, .keep_all = TRUE) %>%
   mutate(across(c(PreS.BMI, PostS.BMI, AgeGrp, Pre.weight, Height), as.numeric))
+# P15 has no pre-study weight
 
 
-# 4. Helper functions 
+# 4. helper: standard CGM metrics for a glucose vector 
+# reference thresholds (mmol/L): TIR 3.9-10.0, TITR 3.9-7.8, TAR >10.0, TBR <3.9
 
-# Standard CGM metrics for a glucose vector.
-# Thresholds (mmol/L): TIR 3.9-10.0, TITR 3.9-7.8, TAR >10.0, TBR <3.9
 cgm_summary <- function(g) {
   g <- g[!is.na(g)]
   tibble(
+    n_readings   = length(g),
     mean_glucose = mean(g),
+    sd_glucose   = sd(g),
     cv_glucose   = sd(g) / mean(g) * 100,
     TIR  = mean(g >= 3.9 & g <= 10.0) * 100,
     TITR = mean(g >= 3.9 & g <= 7.8)  * 100,
     TAR  = mean(g > 10.0) * 100,
-    TBR  = mean(g < 3.9)  * 100  )}
+    TBR  = mean(g < 3.9)  * 100)}
 
-# MAGE for one day's glucose vector (Service et al., 1970):
-# mean amplitude of excursions larger than 1 SD of that day.
-# Calculated per day and averaged later, so gaps between days
-# cannot create false excursions.
+# MAGE for one day's (time-ordered) glucose vector.
+# Service definition: mean amplitude of excursions bigger than 1 SD of that day.
+# done PER DAY and averaged later, so gaps between days can't invent fake swings
+
 mage_day <- function(g) {
   g <- g[!is.na(g)]
   if (length(g) < 3) return(NA_real_)
   thr <- sd(g)
   if (is.na(thr) || thr == 0) return(0)
-  gc <- g[c(TRUE, g[-1] != g[-length(g)])]   # collapse plateaus
+  # collapse consecutive duplicate readings (plateaus)
+  gc <- g[c(TRUE, g[-1] != g[-length(g)])]
   m  <- length(gc)
   if (m < 3) return(0)
+  # mark interior turning points (higher or lower than both neighbours)
   is_tp <- logical(m)
   for (i in 2:(m - 1)) {
     if ((gc[i] > gc[i-1] && gc[i] > gc[i+1]) ||
         (gc[i] < gc[i-1] && gc[i] < gc[i+1])) is_tp[i] <- TRUE
   }
-  tp     <- gc[c(TRUE, is_tp[2:(m - 1)], TRUE)]
+  tp     <- gc[c(TRUE, is_tp[2:(m - 1)], TRUE)]   # turning points + the two endpoints
   swings <- abs(diff(tp))
   big    <- swings[swings > thr]
   if (length(big) == 0) return(0)
   mean(big)}
 
 
-# 5. Per-diet metrics (one value per participant per diet) 
+# 5. per-diet CGM metrics 
 
+# overall (whole-period) metrics per participant x diet
 metrics_overall <- cgm %>%
   group_by(participant, diet) %>%
   group_modify(~ cgm_summary(.x$glucose)) %>%
   ungroup()
 
-mage_tbl <- cgm %>%
+# daytime-only mean glucose (waking hours ~ 06:00-22:00; change if you want)
+daytime_mean <- cgm %>%
+  mutate(hr = hour(datetime)) %>%
+  filter(hr >= 6, hr < 22) %>%
+  group_by(participant, diet) %>%
+  summarise(daytime_glucose = mean(glucose, na.rm = TRUE), .groups = "drop")
+
+# MAGE - per day first, then averaged per participant x diet
+mage_tbl_daily <- cgm %>%
   arrange(participant, diet, day, datetime) %>%
   group_by(participant, diet, day) %>%
-  summarise(mage_d = mage_day(glucose), .groups = "drop") %>%
+  summarise(MAGE = mage_day(glucose), .groups = "drop")
+
+mage_tbl <- mage_tbl_daily %>%
   group_by(participant, diet) %>%
-  summarise(MAGE = mean(mage_d, na.rm = TRUE), .groups = "drop")
+  summarise(MAGE = mean(MAGE, na.rm = TRUE), .groups = "drop")
 
 cgm_metrics <- metrics_overall %>%
-  left_join(mage_tbl, by = c("participant", "diet"))
+  left_join(daytime_mean, by = c("participant", "diet")) %>%
+  left_join(mage_tbl,     by = c("participant", "diet"))
 
 
-# 6. Per-day metrics (for the inter-individual models) 
+# 6. per-DAY metrics (within-diet replication for the aim-3 models) 
 
 daily_metrics <- cgm %>%
   group_by(participant, diet, day) %>%
   group_modify(~ cgm_summary(.x$glucose)) %>%
-  ungroup()
+  ungroup() %>%
+  left_join(
+    cgm %>% mutate(hr = hour(datetime)) %>%
+      filter(hr >= 6, hr < 22) %>%
+      group_by(participant, diet, day) %>%
+      summarise(daytime_glucose = mean(glucose, na.rm = TRUE), .groups = "drop"),
+    by = c("participant", "diet", "day")
+  ) %>%
+  left_join(mage_tbl_daily, by = c("participant", "diet", "day"))
 
 
-# 7. Adherence (Aim 1) 
+# 7. feasibility / adherence (Aim 1) 
 
 compliance <- meals %>%
   group_by(participant, diet) %>%
   summarise(
     n_meals           = n(),
     mean_pct_consumed = mean(pct_consumed, na.rm = TRUE),
-    n_missed          = sum(pct_consumed == 0, na.rm = TRUE),
+    n_full_meals      = sum(pct_consumed == 100, na.rm = TRUE),
+    n_missed          = sum(pct_consumed == 0,   na.rm = TRUE),
     n_partial         = sum(pct_consumed > 0 & pct_consumed < 100, na.rm = TRUE),
-    pct_full          = sum(pct_consumed == 100, na.rm = TRUE) / n() * 100,
+    pct_full          = n_full_meals / n_meals * 100,
+    kcal_consumed     = sum(kcal_meal * pct_consumed / 100, na.rm = TRUE),
+    kcal_prescribed   = sum(kcal_meal, na.rm = TRUE),
+    kcal_compliance   = kcal_consumed / kcal_prescribed * 100,
     n_extras          = sum(had_extra, na.rm = TRUE),
-    .groups = "drop"  )
+    .groups = "drop")
 
 
-# 8. Diet order / period from the randomisation code 
+# 8. diet order / period from the randomisation code 
 # Diet.Routine e.g. "AML" = AUS first, MED second, LC third
 
 letter_to_diet <- c(A = "AUS", M = "MED", L = "LC")
@@ -163,20 +192,37 @@ for (i in 1:nrow(biometrics)) {
       participant = biometrics$participant[i],
       diet        = letter_to_diet[[letters_i[pos]]],
       period      = pos,
-      sequence    = seq_label )) }}
+      sequence    = seq_label))}}
+
 diet_order$diet   <- factor(diet_order$diet, levels = c("AUS", "MED", "LC"))
 diet_order$period <- factor(diet_order$period)
 
+# sanity check vs the meal diary order
+meal_first_day <- meals %>% group_by(participant, diet) %>%
+  summarise(first_day = min(day), .groups = "drop")
+chk <- merge(diet_order, meal_first_day, by = c("participant", "diet"))
+mismatch <- c()
+for (p in unique(chk$participant)) {
+  s <- chk[chk$participant == p, ]; s <- s[order(s$first_day), ]
+  if (!all(s$period == 1:nrow(s))) mismatch <- c(mismatch, as.character(p))
+}
+if (length(mismatch))
+  warning("diet order disagrees with the meal diary for: ", paste(mismatch, collapse = ", "))
 
-# 9. Assemble the two analysis datasets 
 
-# AUS is set as the model reference (statistical only, not a control)
+# 9. assemble the two analysis datasets 
+
+# per participant x diet  (main comparison + descriptives)
 full_data <- cgm_metrics %>%
   left_join(compliance, by = c("participant", "diet")) %>%
   left_join(diet_order, by = c("participant", "diet")) %>%
   left_join(biometrics, by = "participant") %>%
-  mutate(diet = relevel(factor(diet), ref = "AUS"))
+  mutate(
+    diet      = relevel(factor(diet), ref = "AUS"),   # AUS is just the model reference
+    age_group = factor(ifelse(AgeGrp   < 50, "Under 50", "50 and over")),
+    bmi_group = factor(ifelse(PreS.BMI < 25, "Normal",   "Overweight")) )
 
+# per participant x diet x day  (for the person x diet / reliability work)
 daily_data <- daily_metrics %>%
   left_join(diet_order %>% distinct(participant, diet, period, sequence),
             by = c("participant", "diet")) %>%
@@ -184,22 +230,26 @@ daily_data <- daily_metrics %>%
   mutate(diet = relevel(factor(diet), ref = "AUS"))
 
 
-# 10. Distribution check (Shapiro-Wilk) 
+# 10. quick distribution check 
+# just to see which outcomes are skewed - script 2 reports both parametric and
+# non-parametric anyway, so this is only for our eyes.
 
-check_outcomes <- c("mean_glucose", "cv_glucose", "MAGE", "TIR", "TITR", "TAR", "TBR")
+check_outcomes <- c("mean_glucose", "daytime_glucose", "sd_glucose", "cv_glucose",
+                    "MAGE", "TIR", "TITR", "TAR", "TBR")
 
 normality <- data.frame()
 for (out in check_outcomes) {
   for (d in c("AUS", "MED", "LC")) {
     v <- full_data[[out]][full_data$diet == d]; v <- v[!is.na(v)]
-    if (length(v) < 3 || length(unique(v)) < 2) next
+    if (length(v) < 3 || length(unique(v)) < 2) {
+      normality <- rbind(normality, data.frame(Outcome = out, Diet = d,
+                                               N = length(v), p = NA, normal = "-")); next }
     p <- shapiro.test(v)$p.value
-    normality <- rbind(normality, data.frame(
-      Outcome = out, Diet = d, N = length(v),
-      p = round(p, 4), normal = ifelse(p > .05, "yes", "no")))}}
+    normality <- rbind(normality, data.frame(Outcome = out, Diet = d, N = length(v),
+                                             p = round(p, 4), normal = ifelse(p > .05, "yes", "no")))}}
 
 
-# 11. Save 
+# 11. save 
 
 demographics <- biometrics %>%
   summarise(N = n(),
