@@ -6,7 +6,7 @@ library(lubridate)
 library(readxl)
 library(writexl)
 
-setwd("~/Library/CloudStorage/OneDrive-ImperialCollegeLondon/Research Project/Scripts")  # <- your path
+#load the row data - not shared
 
 ppt_levels <- paste0("P", 1:23)
 
@@ -120,13 +120,6 @@ metrics_overall <- cgm %>%
   group_by(participant, diet) %>%
   group_modify(~ cgm_summary(.x$glucose)) %>%
   ungroup()
-
-# daytime-only mean glucose (waking hours ~ 06:00-22:00; change if you want)
-daytime_mean <- cgm %>%
-  mutate(hr = hour(datetime)) %>%
-  filter(hr >= 6, hr < 22) %>%
-  group_by(participant, diet) %>%
-  summarise(daytime_glucose = mean(glucose, na.rm = TRUE), .groups = "drop")
 
 # MAGE - per day first, then averaged per participant x diet
 mage_tbl_daily <- cgm %>%
