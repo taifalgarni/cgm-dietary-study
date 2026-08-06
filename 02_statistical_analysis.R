@@ -11,11 +11,11 @@ library(writexl)
 
 load("CGM_Study.RData")
 
-# keep AUS as the reference diet everywhere
+# to keep AUS as the reference diet everywhere
 full_data$diet  <- relevel(factor(full_data$diet),  ref = "AUS")
 daily_data$diet <- relevel(factor(daily_data$diet), ref = "AUS")
 
-# shared colours (only used by the plot at the end, but keep it near the data)
+# shared colours 
 diet_cols <- c("AUS" = "#4C9BE8", "MED" = "#E88B4C", "LC" = "#4CE897")
 
 # continuous outcomes that are fine for a linear model
@@ -92,7 +92,7 @@ for (out in lmm_outcomes) {
 
 
 # 4. Aim 2 - bounded % outcome (TITR) 
-# TITR floors/ceilings so a normal model is not appropriate. use Friedman
+# TITR floors/ceilings so a normal model is not appropriate. so I use Friedman
 # across the three diets, then paired Wilcoxon for each pair.
 
 diet_pairs <- list(c("AUS", "MED"), c("AUS", "LC"), c("MED", "LC"))
@@ -186,10 +186,10 @@ for (out in c("mean_glucose", "cv_glucose", "MAGE")) {
     slope_sd_MEDvLC = round(sd_med_lc, 3)))}
 
 
-# 6. Aim 3 - reliability of an individual's "best" diet 
+# 6. Aim 3 - reliability of an individual's "optimal" diet 
 # for each person, compare their between-diet spread (on daily means) to their
 # within-diet day-to-day SD. if the spread isn't bigger than the noise, their
-# "best" diet isn't really distinguishable from chance. this is the number the
+# "optimal" diet isn't really distinguishable from chance. this is the number the
 # profile plot below leans on for its caveat.
 
 reliab <- daily_data %>%
