@@ -17,10 +17,8 @@ resp_cols <- c(
   "Mild Opposite"    = "#E88B4C",
   "Strong Opposite"  = "#E63946")
 
-# put participants in P1..P23 order no matter how the column is stored
-# ("P1" / "1" / factor). plain alphabetical would give P1, P10, P11, ... P2,
-# so pull the number out and sort on that. plots add scale_y_discrete(limits =
-# rev) so P1 ends up at the TOP of the axis and P23 at the bottom.
+# puting participants in P1..P23 order no matter how the column is stored
+
 order_participants <- function(p) {
   p   <- as.character(p)
   num <- suppressWarnings(as.numeric(gsub("\\D", "", p)))
@@ -89,8 +87,7 @@ response_data <- full_data %>%
       distinct(participant, .keep_all = TRUE),
     by = "participant" )
 
-# pre-build the text that goes inside each heatmap tile (simpler than doing it
-# inside the plotting call)
+
 response_data <- response_data %>%
   mutate(
     lab_glucose = paste0(round(pct_change_glucose, 1), "%"),
@@ -158,9 +155,8 @@ p_heat_mage <- make_heatmap(
   response_data, "mage_category", "lab_mage",
   "Absolute mmol/L change from participant's own grand mean MAGE\nThreshold: ±0.2 mmol/L = mild | ±0.5 mmol/L = strong")
 
-# combined single-image version for the thesis (Figure 6) - avoids manually
-# tiling three separate PNGs side by side in Word, which made the text
-# unreadably small previously. One shared legend at the bottom, one file.
+# combined single-image version for the thesis (Figure 6) 
+
 p_heat_combined <- (p_heat_glucose + theme(legend.position = "none")) +
   (p_heat_cv     + theme(legend.position = "none", axis.title.y = element_blank())) +
   (p_heat_mage   + theme(legend.position = "none", axis.title.y = element_blank())) +
@@ -235,7 +231,7 @@ composite <- response_data %>%
   ) %>%
   ungroup()
 
-# one row per person: winner (or tie), runner-up gap, and whether the
+# one row per person: winner, runner-up gap, and whether the
 # metrics agree. ties are detected by comparing each diet's score directly
 # once pivoted wide, using a small tolerance for floating-point rounding.
 
@@ -334,12 +330,6 @@ for (pr in pairs_list) {
     Significant  = ifelse(p_adj < 0.05, "Yes", "No"),
     stringsAsFactors = FALSE))}
 
-# chi-square goodness of fit: is each diet equally likely to win outright?
-# H0: all diets equally likely to be best (expected = 1/3).
-# run on participants with a clear (non-tied) winner only - a tie isn't a
-# "win" for either diet, so including it as a fourth category would answer
-# a different question. Ties are reported separately instead.
-# MED rarely wins so expected counts are small -> use a Monte Carlo p-value.
 
 clear_winners <- margins %>% filter(!is_tied)
 n_tied        <- sum(margins$is_tied)
@@ -353,6 +343,7 @@ chi_interpretation <- ifelse(chi_result$p.value < 0.05,
 # binomial test per diet: does that one diet win more than 1/3 of the time?
 # denominator is participants with a clear winner (ties excluded, since a tie
 # is not a win for either diet in the comparison).
+
 n_total <- nrow(clear_winners)
 binom_results <- data.frame()
 for (d in c("LC", "AUS", "MED")) {
